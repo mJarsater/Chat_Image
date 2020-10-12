@@ -151,9 +151,10 @@ class ImageReceiver extends Thread{
                 ByteArrayInputStream inputStream = new ByteArrayInputStream(storage.getData());
 
                 BufferedImage bufferedImage = ImageIO.read(inputStream);
-
-                if(bufferedImage == null) {
-                    imageLabel.setIcon(new ImageIcon(bufferedImage));
+                ImageIcon receivedImage = new ImageIcon(bufferedImage+".png");
+                if(receivedImage != null) {
+                    ImageIO.write(bufferedImage,"jpg",new File("M:\\My Documents\\My Pictures\\"+storage.getId()+".jpg"));
+                    imageLabel.setIcon(receivedImage);
                     imageLabel.setText("Test");
                     System.out.println("Image received");
                 } else{
