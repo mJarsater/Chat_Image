@@ -12,10 +12,13 @@ public class Chat_Image extends JFrame {
     private File selectedImage;
     private JPanel sendImageArea, getImageArea;
     private ImageIcon imageIcon;
-    private int myPort, toPort;
+    private int port;
+    private String address;
+    private Socket socket;
 
 
     public Chat_Image(String[]args){
+        try {
         sendImageArea = new JPanel();
         sendImageArea.setBounds(5,5,200,300);
         sendImageArea.setBackground(Color.gray);
@@ -47,11 +50,14 @@ public class Chat_Image extends JFrame {
         this.setSize(500,500);
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setVisible(true);
-
-
-        myPort = Integer.parseInt(args[0]);
-        toPort = Integer.parseInt(args[1]);
-        new ImageReceiver(getImage, myPort);
+        port = 4848;
+        address = "atlas.dsv.su.se";
+        socket = new Socket(address, port);
+        setTitle("Connected...");
+        new ImageReceiver(getImage, socket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
 
     }
@@ -80,7 +86,7 @@ public class Chat_Image extends JFrame {
     private void sendImage(ActionEvent actionEvent)  {
         System.out.println("Send clicked");
         Image image = imageIcon.getImage();
-            new ImageSender(image, toPort);
+            new ImageSender(image, socket);
 
 
     }
@@ -89,36 +95,31 @@ public class Chat_Image extends JFrame {
 }
 
 class ImageSender {
-    Image image;
-    private int toPort;
+    private Image image;
+    private Socket socket;
+    private ObjectOutputStream in;
 
-    public ImageSender(Image image, int toPort){
+    public ImageSender(Image image, Socket socket){
         this.image = image;
-        this.toPort = toPort;
+        this.socket = socket;
+
         sendImage();
     }
 
     public void sendImage(){
         try {
-            Socket socket = new Socket("localhost", toPort);
-            OutputStream outputStream = socket.getOutputStream();
-            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream);
+            in = new ObjectOutputStream(socket.getOutputStream());
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[]data = bos.toByteArray();
+            String id = "message";
 
-            BufferedImage bufferedImage = new BufferedImage(image.getWidth(null), image.getHeight(null), BufferedImage.TYPE_INT_RGB);
-
-
-            Graphics graphics = bufferedImage.createGraphics();
-            graphics.drawImage(image,0,0,null);
-            graphics.dispose();
-
-            ImageIO.write(bufferedImage, "png", bufferedOutputStream);
+            Storage imageMsg = new Storage(data, id);
 
 
-            outputStream.close();
-            bufferedOutputStream.close();
-            socket.close();
-            System.out.println(socket);
+            in.writeObject(imageMsg);
+            System.out.println("Image sent");
 
+            in.reset();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -128,45 +129,37 @@ class ImageSender {
 
 class ImageReceiver extends Thread{
     private JLabel imageLabel;
-    private int myPort;
-    private ServerSocket serverSocket;
     private Socket socket;
-    private InputStream inputStream;
-    private BufferedInputStream bufferedInputStream;
+    private ObjectInputStream in;
 
-    public ImageReceiver(JLabel imageLabel, int myPort){
+    public ImageReceiver(JLabel imageLabel, Socket socket){
         this.imageLabel = imageLabel;
-        this.myPort = myPort;
+        this.socket = socket;
         start();
     }
 
     public void run() {
         try {
             while (true) {
-                 serverSocket = new ServerSocket(myPort);
-                 socket = serverSocket.accept();
+                in = new ObjectInputStream(socket.getInputStream());
+                Storage storage = (Storage)in.readObject();
+                System.out.println(storage.getId());
+                System.out.println("Reading");
+                InputStream inputStream = new ByteArrayInputStream(storage.getData());
+                System.out.println(storage.getData());
+                BufferedImage bufferedImage = ImageIO.read(inputStream);
+                System.out.println("Read");
 
-                 inputStream = socket.getInputStream();
-                 bufferedInputStream = new BufferedInputStream(inputStream);
 
-                BufferedImage bufferedImage = ImageIO.read(bufferedInputStream);
+                ImageIO.write(bufferedImage, "jpg", new File("C:\\Users\\Marti\\OneDrive\\Bilder\\"+storage.getId()+".jpg"));
+                System.out.println("Image received");
 
-                imageLabel.setIcon(new ImageIcon(bufferedImage));
-
-
-                inputStream.close();
-                bufferedInputStream.close();
-                serverSocket.close();
-                socket.close();
             }
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
     public void kill() throws IOException {
-        inputStream.close();
-        bufferedInputStream.close();
-        serverSocket.close();
         socket.close();
     }
 
