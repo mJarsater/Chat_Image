@@ -86,7 +86,7 @@ public class Chat_Image extends JFrame {
     private void sendImage(ActionEvent actionEvent)  {
         System.out.println("Send clicked");
         Image image = imageIcon.getImage();
-            new ImageSender(image, socket);
+            new ImageSender(image, socket, sendImage);
 
 
     }
@@ -98,18 +98,22 @@ class ImageSender {
     private Image image;
     private Socket socket;
     private ObjectOutputStream in;
+    private JLabel sendImage;
 
-    public ImageSender(Image image, Socket socket){
+    public ImageSender(Image image, Socket socket, JLabel sendImage){
         this.image = image;
         this.socket = socket;
-
+        this.sendImage = sendImage;
         sendImage();
     }
 
     public void sendImage(){
         try {
             in = new ObjectOutputStream(socket.getOutputStream());
+            Icon icon = sendImage.getIcon();
+            BufferedImage bufferedImage = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_RGB);
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            ImageIO.write(bufferedImage, "jpg", bos);
             byte[]data = bos.toByteArray();
             String id = "message";
 
@@ -143,17 +147,18 @@ class ImageReceiver extends Thread{
             while (true) {
                 in = new ObjectInputStream(socket.getInputStream());
                 Storage storage = (Storage)in.readObject();
-                System.out.println(storage.getId());
-                System.out.println("Reading");
-                InputStream inputStream = new ByteArrayInputStream(storage.getData());
-                System.out.println(storage.getData());
+
+                ByteArrayInputStream inputStream = new ByteArrayInputStream(storage.getData());
+
                 BufferedImage bufferedImage = ImageIO.read(inputStream);
-                System.out.println("Read");
 
-
-                ImageIO.write(bufferedImage, "jpg", new File("C:\\Users\\Marti\\OneDrive\\Bilder\\"+storage.getId()+".jpg"));
-                System.out.println("Image received");
-
+                if(bufferedImage == null) {
+                    imageLabel.setIcon(new ImageIcon(bufferedImage));
+                    imageLabel.setText("Test");
+                    System.out.println("Image received");
+                } else{
+                    imageLabel.setText("No image received");
+                }
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
