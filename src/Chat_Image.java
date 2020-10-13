@@ -13,7 +13,7 @@ public class Chat_Image extends JFrame {
     private JPanel sendImageArea, getImageArea;
     private ImageIcon imageIcon;
     private int port;
-    private String address;
+    private String address, localPath;
     private Socket socket;
 
 
@@ -75,6 +75,7 @@ public class Chat_Image extends JFrame {
             selectedImage = fileChooser.getSelectedFile();
             try {
                 imageIcon = new ImageIcon(ImageIO.read(selectedImage));
+                localPath = selectedImage.getPath();
                 sendImage.setIcon(imageIcon);
                 sendImage.setText("");
             }catch (IOException ioe){
@@ -86,7 +87,8 @@ public class Chat_Image extends JFrame {
     private void sendImage(ActionEvent actionEvent)  {
         System.out.println("Send clicked");
         Image image = imageIcon.getImage();
-            new ImageSender(image, socket, sendImage);
+
+            new ImageSender(image, socket, sendImage, localPath);
 
 
     }
@@ -97,33 +99,31 @@ public class Chat_Image extends JFrame {
 class ImageSender {
     private Image image;
     private Socket socket;
-    private ObjectOutputStream in;
+    private ObjectOutputStream out;
     private JLabel sendImage;
+    private String localPath;
 
-    public ImageSender(Image image, Socket socket, JLabel sendImage){
+    public ImageSender(Image image, Socket socket, JLabel sendImage, String localPath){
         this.image = image;
         this.socket = socket;
         this.sendImage = sendImage;
+        this.localPath = localPath;
         sendImage();
     }
 
     public void sendImage(){
         try {
-            in = new ObjectOutputStream(socket.getOutputStream());
-            Icon icon = sendImage.getIcon();
-            BufferedImage bufferedImage = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_RGB);
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ImageIO.write(bufferedImage, "jpg", bos);
-            byte[]data = bos.toByteArray();
-            String id = "message";
+            OutputStream outputStream = socket.getOutputStream();
+            out = new ObjectOutputStream(outputStream);
 
-            Storage imageMsg = new Storage(data, id);
-
-
-            in.writeObject(imageMsg);
-            System.out.println("Image sent");
-
-            in.reset();
+            BufferedImage bufferedImage = ImageIO.read(new File(localPath));
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ImageIO.write(bufferedImage, "jpg", byteArrayOutputStream);
+            byte[] data = byteArrayOutputStream.toByteArray();
+            Storage message = new Storage(data, "message");
+            System.out.println(data.length);
+            out.writeObject(message);
+            out.reset();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -147,19 +147,15 @@ class ImageReceiver extends Thread{
             while (true) {
                 in = new ObjectInputStream(socket.getInputStream());
                 Storage storage = (Storage)in.readObject();
+                System.out.println(storage.getData().length);
+                byte[] data = storage.getData();
+                ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(data);
+                BufferedImage receivedBufferedImage = ImageIO.read(byteArrayInputStream);
+                ImageIcon receivedImage = new ImageIcon(receivedBufferedImage);
+                imageLabel.setIcon(receivedImage);
 
-                ByteArrayInputStream inputStream = new ByteArrayInputStream(storage.getData());
 
-                BufferedImage bufferedImage = ImageIO.read(inputStream);
-                ImageIcon receivedImage = new ImageIcon(bufferedImage+".png");
-                if(receivedImage != null) {
-                    ImageIO.write(bufferedImage,"jpg",new File("M:\\My Documents\\My Pictures\\"+storage.getId()+".jpg"));
-                    imageLabel.setIcon(receivedImage);
-                    imageLabel.setText("Test");
-                    System.out.println("Image received");
-                } else{
-                    imageLabel.setText("No image received");
-                }
+
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
