@@ -7,7 +7,9 @@ import java.io.*;
 import java.net.*;
 
 public class Chat_Image extends JFrame {
-    private JLabel sendImage, getImage;
+    private JLabel sendImage, getImage, sendMesssageLabel, getMessageLabel;
+    private JTextField sendMessageField;
+    private JTextArea getMessageTextArea;
     private JButton chooseImgBtn, sendImageBtn;
     private File selectedImage;
     private JPanel sendImageArea, getImageArea;
@@ -23,13 +25,21 @@ public class Chat_Image extends JFrame {
         sendImageArea.setBounds(5,5,200,300);
         sendImageArea.setBackground(Color.gray);
         sendImage = new JLabel("No image chose");
+        sendMesssageLabel = new JLabel("Message: ");
+        sendMesssageLabel.setBounds(5, 310, 60, 20);
+        sendMessageField = new JTextField();
+        sendMessageField.setBounds(65, 310, 135, 20);
+
 
         getImageArea = new JPanel();
         getImageArea.setBounds(225,5,200,300);
         getImageArea.setBackground(Color.gray);
         getImage = new JLabel("No image received");
-
-
+        getMessageLabel = new JLabel("Received message: ");
+        getMessageLabel.setBounds(225, 310, 200, 20);
+        getMessageTextArea = new JTextArea();
+        getMessageTextArea.setEditable(false);
+        getMessageTextArea.setBounds(225, 340, 200, 100);
         chooseImgBtn = new JButton("Choose image");
         chooseImgBtn.setBounds(5, 350, 200, 30);
 
@@ -41,8 +51,12 @@ public class Chat_Image extends JFrame {
         getImageArea.add(getImage);
         this.add(chooseImgBtn);
         this.add(sendImageBtn);
+        this.add(sendMesssageLabel);
+        this.add(sendMessageField);
         this.add(sendImageArea);
         this.add(getImageArea);
+        this.add(getMessageLabel);
+        this.add(getMessageTextArea);
         sendImageBtn.addActionListener(this:: sendImage);
         chooseImgBtn.addActionListener(this:: getImage);
         this.setLayout(null);
@@ -54,7 +68,7 @@ public class Chat_Image extends JFrame {
         address = "atlas.dsv.su.se";
         socket = new Socket(address, port);
         setTitle("Connected...");
-        new ImageReceiver(getImage, socket);
+        new ImageReceiver(getImage, socket, getMessageTextArea, this);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -84,29 +98,33 @@ public class Chat_Image extends JFrame {
         }
     }
 
+
     private void sendImage(ActionEvent actionEvent)  {
         System.out.println("Send clicked");
-        Image image = imageIcon.getImage();
-
-            new ImageSender(image, socket, sendImage, localPath);
-
-
+        if(sendMessageField.getText().equals("")){
+            String msg = "No message";
+            new ImageSender( socket,  localPath ,msg);
+        } else {
+            String msg = sendMessageField.getText();
+            new ImageSender( socket,  localPath ,msg);
     }
+
+
 
 
 }
 
 class ImageSender {
-    private Image image;
+
     private Socket socket;
     private ObjectOutputStream out;
-    private JLabel sendImage;
+    private String msg;
+
     private String localPath;
 
-    public ImageSender(Image image, Socket socket, JLabel sendImage, String localPath){
-        this.image = image;
+    public ImageSender(Socket socket, String localPath, String msg){
+        this.msg = msg;
         this.socket = socket;
-        this.sendImage = sendImage;
         this.localPath = localPath;
         sendImage();
     }
@@ -120,7 +138,7 @@ class ImageSender {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             ImageIO.write(bufferedImage, "jpg", byteArrayOutputStream);
             byte[] data = byteArrayOutputStream.toByteArray();
-            Storage message = new Storage(data, "message");
+            Storage message = new Storage(data, msg);
             System.out.println(data.length);
             out.writeObject(message);
             out.reset();
@@ -131,14 +149,18 @@ class ImageSender {
     }
 }
 
-class ImageReceiver extends Thread{
+class ImageReceiver extends Thread {
     private JLabel imageLabel;
+    private JTextArea getMessageTextArea;
     private Socket socket;
     private ObjectInputStream in;
+    private Chat_Image chat;
 
-    public ImageReceiver(JLabel imageLabel, Socket socket){
+    public ImageReceiver(JLabel imageLabel, Socket socket, JTextArea getMessageTextArea, Chat_Image chat) {
+        this.getMessageTextArea = getMessageTextArea;
         this.imageLabel = imageLabel;
         this.socket = socket;
+        this.chat = chat;
         start();
     }
 
@@ -146,24 +168,25 @@ class ImageReceiver extends Thread{
         try {
             while (true) {
                 in = new ObjectInputStream(socket.getInputStream());
-                Storage storage = (Storage)in.readObject();
-                System.out.println(storage.getData().length);
+                Storage storage = (Storage) in.readObject();
                 byte[] data = storage.getData();
+                String msg = storage.getId();
                 ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(data);
                 BufferedImage receivedBufferedImage = ImageIO.read(byteArrayInputStream);
                 ImageIcon receivedImage = new ImageIcon(receivedBufferedImage);
                 imageLabel.setIcon(receivedImage);
-
-
+                getMessageTextArea.setText(msg);
 
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
+
     public void kill() throws IOException {
         socket.close();
     }
 
 
+}
 }
