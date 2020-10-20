@@ -7,12 +7,11 @@ import java.io.*;
 import java.net.*;
 
 public class Chat_Image extends JFrame {
-    private JLabel sendImage, getImage, sendMesssageLabel, getMessageLabel;
+    private JLabel sendImage, getImage, sendMesssageLabel;
     private JTextField sendMessageField;
     private JTextArea getMessageTextArea;
     private JButton chooseImgBtn, sendImageBtn;
     private File selectedImage;
-    private JPanel sendImageArea, getImageArea;
     private ImageIcon imageIcon;
     private int port;
     private String address, localPath;
